@@ -38,6 +38,8 @@
 #include "target_specific.h"
 #include <memory>
 #include <utility>
+#include "ButtonRappel.h"
+
 
 #ifdef ARCH_ESP32
 #if !MESHTASTIC_EXCLUDE_WEBSERVER
@@ -173,6 +175,9 @@ std::pair<uint8_t, TwoWire *> nodeTelemetrySensorsMap[_meshtastic_TelemetrySenso
 
 Router *router = NULL; // Users of router don't care what sort of subclass implements that API
 
+ButtonRappel buttonRappel;
+
+
 const char *getDeviceName()
 {
     uint8_t dmac[6];
@@ -241,6 +246,7 @@ void printInfo()
 #ifndef PIO_UNIT_TESTING
 void setup()
 {
+buttonRappel.setup();
 #if defined(T_DECK)
     // GPIO10 manages all peripheral power supplies
     // Turn on peripheral power immediately after MUC starts.
@@ -1249,6 +1255,8 @@ void scannerToSensorsMap(const std::unique_ptr<ScanI2CTwoWire> &i2cScanner, Scan
 void loop()
 {
     runASAP = false;
+    buttonRappel.tick();
+
 
 #ifdef ARCH_ESP32
     esp32Loop();
