@@ -38,15 +38,30 @@ class ButtonThread : public concurrency::OSThread
     void storeClickCount();
 
   private:
-#if defined(BUTTON_PIN) || defined(ARCH_PORTDUINO) || defined(USERPREFS_BUTTON_PIN)
-    static OneButton userButton; // Static - accessed from an interrupt
-#endif
-#ifdef BUTTON_PIN_ALT
-    OneButton userButtonAlt;
-#endif
-#ifdef BUTTON_PIN_TOUCH
-    OneButton userButtonTouch;
-#endif
+    // Bouton 1 (SOS)
+    #if defined(BUTTON_PIN)
+        static OneButton userButton; // Static - accessed from an interrupt
+        static void userButtonPressed() { btnEvent = BUTTON_EVENT_PRESSED; }
+        static void userButtonDoublePressed() { btnEvent = BUTTON_EVENT_DOUBLE_PRESSED; }
+        static void userButtonPressedLongStart();
+        static void userButtonPressedLongStop();
+    #endif
+
+    // Bouton 2 (Rappel)
+    #if defined(BUTTON_PIN_2)
+        static OneButton userButton2; // Static - accessed from an interrupt
+        static void userButton2Pressed() { btnEvent = BUTTON_EVENT_PRESSED; }
+        static void userButton2DoublePressed() { btnEvent = BUTTON_EVENT_DOUBLE_PRESSED; }
+        static void userButton2PressedLongStart();
+        static void userButton2PressedLongStop();
+    #endif
+
+    #ifdef BUTTON_PIN_ALT
+        OneButton userButtonAlt;
+    #endif
+    #ifdef BUTTON_PIN_TOUCH
+        OneButton userButtonTouch;
+    #endif
 
     // set during IRQ
     static volatile ButtonEventType btnEvent;
@@ -56,13 +71,9 @@ class ButtonThread : public concurrency::OSThread
 
     static void wakeOnIrq(int irq, int mode);
 
-    // IRQ callbacks
-    static void userButtonPressed() { btnEvent = BUTTON_EVENT_PRESSED; }
-    static void userButtonDoublePressed() { btnEvent = BUTTON_EVENT_DOUBLE_PRESSED; }
+    // IRQ callbacks for userButton
     static void userButtonMultiPressed(void *callerThread); // Retrieve click count from non-static Onebutton while still valid
-    static void userButtonPressedLongStart();
-    static void userButtonPressedLongStop();
     static void touchPressedLongStart() { btnEvent = BUTTON_EVENT_TOUCH_LONG_PRESSED; }
 };
 
-extern ButtonThread *buttonThread;
+extern ButtonThread *buttonThread;   

@@ -30,77 +30,59 @@ volatile ButtonThread::ButtonEventType ButtonThread::btnEvent = ButtonThread::BU
 #if defined(BUTTON_PIN) || defined(ARCH_PORTDUINO) || defined(USERPREFS_BUTTON_PIN)
 OneButton ButtonThread::userButton; // Get reference to static member
 #endif
-ButtonThread::ButtonThread() : OSThread("Button")
-{
-#if defined(BUTTON_PIN) || defined(ARCH_PORTDUINO) || defined(USERPREFS_BUTTON_PIN)
-
-#if defined(ARCH_PORTDUINO)
-    if (settingsMap.count(user) != 0 && settingsMap[user] != RADIOLIB_NC) {
-        this->userButton = OneButton(settingsMap[user], true, true);
-        LOG_DEBUG("Use GPIO%02d for button", settingsMap[user]);
-    }
-#elif defined(BUTTON_PIN)
-#if !defined(USERPREFS_BUTTON_PIN)
-    int pin = config.device.button_gpio ? config.device.button_gpio : BUTTON_PIN;           // Resolved button pin
-#endif
-#ifdef USERPREFS_BUTTON_PIN
-    int pin = config.device.button_gpio ? config.device.button_gpio : USERPREFS_BUTTON_PIN; // Resolved button pin
-#endif
-#if defined(HELTEC_CAPSULE_SENSOR_V3)
-    this->userButton = OneButton(pin, false, false);
-#elif defined(BUTTON_ACTIVE_LOW)
-    this->userButton = OneButton(pin, BUTTON_ACTIVE_LOW, BUTTON_ACTIVE_PULLUP);
-#else
-    this->userButton = OneButton(pin, true, true);
-#endif
-    LOG_DEBUG("Use GPIO%02d for button", pin);
+#if defined(BUTTON_PIN_2) || defined(ARCH_PORTDUINO) || defined(USERPREFS_BUTTON_PIN_2)
+OneButton ButtonThread::userButton2; // Static member for the second button
 #endif
 
-#ifdef INPUT_PULLUP_SENSE
-    // Some platforms (nrf52) have a SENSE variant which allows wake from sleep - override what OneButton did
-#ifdef BUTTON_SENSE_TYPE
-    pinMode(pin, BUTTON_SENSE_TYPE);
-#else
-    pinMode(pin, INPUT_PULLUP_SENSE);
-#endif
-#endif
 
-#if defined(BUTTON_PIN) || defined(ARCH_PORTDUINO) || defined(USERPREFS_BUTTON_PIN)
-    userButton.attachClick(userButtonPressed);
-    userButton.setClickMs(BUTTON_CLICK_MS);
-    userButton.setPressMs(BUTTON_LONGPRESS_MS);
-    userButton.setDebounceMs(1);
-    userButton.attachDoubleClick(userButtonDoublePressed);
-    userButton.attachMultiClick(userButtonMultiPressed, this); // Reference to instance: get click count from non-static OneButton
-#ifndef T_DECK // T-Deck immediately wakes up after shutdown, so disable this function
-    userButton.attachLongPressStart(userButtonPressedLongStart);
-    userButton.attachLongPressStop(userButtonPressedLongStop);
-#endif
-#endif
 
-#ifdef BUTTON_PIN_ALT
-    userButtonAlt = OneButton(BUTTON_PIN_ALT, true, true);
-#ifdef INPUT_PULLUP_SENSE
-    // Some platforms (nrf52) have a SENSE variant which allows wake from sleep - override what OneButton did
-    pinMode(BUTTON_PIN_ALT, INPUT_PULLUP_SENSE);
-#endif
-    userButtonAlt.attachClick(userButtonPressed);
-    userButtonAlt.setClickMs(BUTTON_CLICK_MS);
-    userButtonAlt.setPressMs(BUTTON_LONGPRESS_MS);
-    userButtonAlt.setDebounceMs(1);
-    userButtonAlt.attachDoubleClick(userButtonDoublePressed);
-    userButtonAlt.attachLongPressStart(userButtonPressedLongStart);
-    userButtonAlt.attachLongPressStop(userButtonPressedLongStop);
-#endif
+ButtonThread::ButtonThread() : OSThread("Button") {
+    // Initialisation pour le bouton principal (SOS)
+    #if defined(BUTTON_PIN)
+        int pin = config.device.button_gpio ? config.device.button_gpio : BUTTON_PIN;
+        this->userButton = OneButton(pin, true, true); // Actif à HIGH
+        LOG_DEBUG("Use GPIO%02d for SOS button", pin);
 
-#ifdef BUTTON_PIN_TOUCH
-    userButtonTouch = OneButton(BUTTON_PIN_TOUCH, true, true);
-    userButtonTouch.setPressMs(BUTTON_TOUCH_MS);
-    userButtonTouch.attachLongPressStart(touchPressedLongStart); // Better handling with longpress than click?
-#endif
+        userButton.attachClick(userButtonPressed); // Appel de la fonction associée
+        userButton.setClickMs(BUTTON_CLICK_MS);
+        userButton.setPressMs(BUTTON_LONGPRESS_MS);
+    #endif
 
+    // Initialisation pour le deuxième bouton (Rappel)
+    #if defined(BUTTON_PIN_2)
+        int pin2 = config.device.button_gpio_2 ? config.device.button_gpio_2 : BUTTON_PIN_2;
+        this->userButton2 = OneButton(pin2, true, true); // Actif à HIGH
+        LOG_DEBUG("Use GPIO%02d for Rappel button", pin2);
+
+        userButton2.attachClick(userButton2Pressed); // Appel de la fonction associée
+        userButton2.setClickMs(BUTTON_CLICK_MS);
+        userButton2.setPressMs(BUTTON_LONGPRESS_MS);
+    #endif
+
+    // Initialisation pour un bouton alternatif
+    #ifdef BUTTON_PIN_ALT
+        userButtonAlt = OneButton(BUTTON_PIN_ALT, true, true);
+        #ifdef INPUT_PULLUP_SENSE
+            pinMode(BUTTON_PIN_ALT, INPUT_PULLUP_SENSE); // Mode pull-up si nécessaire
+        #endif
+        userButtonAlt.attachClick(userButtonPressed);
+        userButtonAlt.setClickMs(BUTTON_CLICK_MS);
+        userButtonAlt.setPressMs(BUTTON_LONGPRESS_MS);
+        userButtonAlt.setDebounceMs(1);
+        userButtonAlt.attachDoubleClick(userButtonDoublePressed);
+        userButtonAlt.attachLongPressStart(userButtonPressedLongStart);
+        userButtonAlt.attachLongPressStop(userButtonPressedLongStop);
+    #endif
+
+    // Initialisation pour un bouton tactile (optionnel)
+    #ifdef BUTTON_PIN_TOUCH
+        userButtonTouch = OneButton(BUTTON_PIN_TOUCH, true, true);
+        userButtonTouch.setPressMs(BUTTON_TOUCH_MS);
+        userButtonTouch.attachLongPressStart(touchPressedLongStart); // Gestion longue pression
+    #endif
+
+    // Attachement des interruptions
     attachButtonInterrupts();
-#endif
 }
 
 int32_t ButtonThread::runOnce()
@@ -117,6 +99,13 @@ int32_t ButtonThread::runOnce()
         canSleep &= userButton.isIdle();
     }
 #endif
+
+#ifdef USERPREFS_BUTTON_PIN_2
+    userButton2.tick();
+    canSleep &= userButton2.isIdle();
+#endif
+
+
 #ifdef BUTTON_PIN_ALT
     userButtonAlt.tick();
     canSleep &= userButtonAlt.isIdle();
@@ -270,6 +259,18 @@ void ButtonThread::attachButtonInterrupts()
         CHANGE);
 #endif
 
+#ifdef USERPREFS_BUTTON_PIN_2
+    attachInterrupt(
+        config.device.button_gpio_2 ? config.device.button_gpio_2 : USERPREFS_BUTTON_PIN_2,
+        []() {
+            ButtonThread::userButton2.tick();
+            runASAP = true;
+            BaseType_t higherWake = 0;
+            mainDelay.interruptFromISR(&higherWake);
+        },
+        CHANGE);
+#endif
+
 #ifdef BUTTON_PIN_ALT
     wakeOnIrq(BUTTON_PIN_ALT, FALLING);
 #endif
@@ -297,6 +298,10 @@ void ButtonThread::detachButtonInterrupts()
 #endif
 #endif
 
+#ifdef USERPREFS_BUTTON_PIN_2
+    detachInterrupt(config.device.button_gpio_2 ? config.device.button_gpio_2 : USERPREFS_BUTTON_PIN_2);
+#endif
+
 #ifdef BUTTON_PIN_ALT
     detachInterrupt(BUTTON_PIN_ALT);
 #endif
@@ -322,6 +327,7 @@ void ButtonThread::wakeOnIrq(int irq, int mode)
         FALLING);
 }
 
+// Static callback
 // Static callback
 void ButtonThread::userButtonMultiPressed(void *callerThread)
 {
@@ -354,3 +360,34 @@ void ButtonThread::userButtonPressedLongStop()
         btnEvent = BUTTON_EVENT_LONG_RELEASED;
     }
 }
+
+#ifdef USERPREFS_BUTTON_PIN
+void ButtonThread::userButtonPressed() {
+    LOG_BUTTON("S.O.S triggered!");
+    Serial.println("S.O.S"); // Affiche dans le Serial Monitor
+    MeshService::sendMessage("S.O.S"); // Envoie un message ou déclenche une action
+}
+#endif
+
+#ifdef USERPREFS_BUTTON_PIN_2
+void ButtonThread::userButton2Pressed() {
+    LOG_BUTTON("Rappel triggered!");
+    Serial.println("Rappel"); // Affiche dans le Serial Monitor
+    MeshService::sendMessage("Rappel"); // Envoie un message ou déclenche une action
+}
+
+void ButtonThread::userButton2DoublePressed() {
+    LOG_BUTTON("Second button double pressed!");
+    Serial.println("Double press on Rappel"); // Logique spécifique pour le double clic
+}
+
+void ButtonThread::userButton2PressedLongStart() {
+    LOG_BUTTON("Second button long press start!");
+    Serial.println("Long press start on Rappel"); // Logique pour le début du long press
+}
+
+void ButtonThread::userButton2PressedLongStop() {
+    LOG_BUTTON("Second button long press stop!");
+    Serial.println("Long press stop on Rappel"); // Logique pour la fin du long press
+}
+#endif

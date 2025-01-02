@@ -11,7 +11,8 @@
 #define I2C_SCL1 SCL
 
 #define VEXT_ENABLE Vext // active low, powers the oled display and the lora antenna boost
-#define BUTTON_PIN 0
+#define BUTTON_PIN 19
+#define BUTTON_PIN_2 7 // GPIO pour le deuxième bouton
 
 #define ADC_CTRL 37
 #define ADC_CTRL_ENABLED LOW

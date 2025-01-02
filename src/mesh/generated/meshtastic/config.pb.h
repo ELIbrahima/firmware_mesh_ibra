@@ -299,6 +299,8 @@ typedef struct _meshtastic_Config_DeviceConfig {
     /* For boards without a hard wired button, this is the pin number that will be used
  Boards that have more than one button can swap the function with this one. defaults to BUTTON_PIN if defined. */
     uint32_t button_gpio;
+    uint32_t button_gpio_2;
+
     /* For boards without a PWM buzzer, this is the pin number that will be used
  Defaults to PIN_BUZZER if defined. */
     uint32_t buzzer_gpio;
